@@ -7,6 +7,12 @@ pub struct Emulator {
     bus: Bus,
 }
 
+impl Default for Emulator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Emulator {
     pub fn new() -> Self {
         Self {
