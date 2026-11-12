@@ -204,16 +204,20 @@ impl Cpu {
 
     // Loads
     fn ld_r8_r8(&mut self, bus: &mut Bus, opcode: u8) {
-        self.set_r8(bus, opcode & DEST_R8, self.get_r8(bus, opcode & SRC_R8));
+        self.set_r8(
+            bus,
+            (opcode & DEST_R8) >> 3,
+            self.get_r8(bus, opcode & SRC_R8),
+        );
     }
 
     fn ld_r16_imm16(&mut self, bus: &mut Bus, opcode: u8) {
         let imm16 = self.fetch_bytes(bus);
-        self.set_r16(opcode & DEST_R16, imm16);
+        self.set_r16((opcode & DEST_R16) >> 4, imm16);
     }
 
     fn ld_r16mem_a(&mut self, bus: &mut Bus, opcode: u8) {
-        let code = opcode & DEST_R16;
+        let code = (opcode & DEST_R16) >> 4;
         self.set_r16mem(bus, code, self.a);
         if code == R16_HL {
             let hl = self.get_r16(R16_HL);
@@ -225,7 +229,7 @@ impl Cpu {
     }
 
     fn ld_a_r16mem(&mut self, bus: &Bus, opcode: u8) {
-        let code = opcode & DEST_R16;
+        let code = (opcode & DEST_R16) >> 4;
         self.a = self.get_r16mem(bus, code);
         if code == R16_HL {
             let hl = self.get_r16(R16_HL);
@@ -244,7 +248,7 @@ impl Cpu {
 
     fn ld_r8_imm8(&mut self, bus: &mut Bus, opcode: u8) {
         let imm8 = self.fetch_byte(bus);
-        self.set_r8(bus, opcode & DEST_R8, imm8);
+        self.set_r8(bus, (opcode & DEST_R8) >> 3, imm8);
     }
 
     fn ld_mem_a(&mut self, bus: &mut Bus, addr: u16) {
@@ -269,7 +273,7 @@ impl Cpu {
     }
 
     fn ld_sp_hl(&mut self, opcode: u8) {
-        self.set_r16(opcode & DEST_R16, self.get_r16(R16_HL));
+        self.set_r16((opcode & DEST_R16) >> 4, self.get_r16(R16_HL));
     }
 
     pub fn step(&mut self, bus: &mut Bus) {
@@ -294,16 +298,17 @@ impl Cpu {
                 self.ld_a_r16mem(bus, opcode);
             }
             // LD r8 r8
-            0x40..0x7F => {
+            0x40..=0x7F => {
                 if opcode == 0x76 {
                     // Impl HALT
+                    todo!("Implement");
                 }
                 // call ld
                 self.ld_r8_r8(bus, opcode);
             }
             0xE0 => {
                 let imm8 = self.fetch_byte(bus) as u16;
-                self.ld_mem_a(bus, imm8 as u16);
+                self.ld_mem_a(bus, 0xFF00 + imm8 as u16);
             }
             0xE2 => {
                 self.ld_mem_a(bus, 0xFF00 + self.c as u16);
@@ -314,7 +319,7 @@ impl Cpu {
             }
             0xF0 => {
                 let imm8 = self.fetch_byte(bus);
-                self.ld_a(bus, imm8 as u16);
+                self.ld_a(bus, 0xFF00 + imm8 as u16);
             }
             0xF2 => {
                 self.ld_a(bus, 0xFF00 + self.c as u16);
