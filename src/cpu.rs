@@ -1,3 +1,4 @@
+mod instructions;
 #[cfg(test)]
 mod tests;
 
@@ -16,6 +17,7 @@ bitflags! {
 }
 
 impl Flags {
+    #[allow(dead_code)]
     fn check_cond(&self, code: u8) -> bool {
         match code {
             0 => !self.contains(Flags::ZERO),
@@ -29,6 +31,8 @@ impl Flags {
 
 const DEST_R8: u8 = 0b00111000;
 const SRC_R8: u8 = 0b00000111;
+const DEST_R16: u8 = 0b00110000;
+const R16_HL: u8 = 2;
 
 #[derive(Debug, PartialEq)]
 pub struct Cpu {
@@ -42,6 +46,12 @@ pub struct Cpu {
     l: u8,
     pc: u16,
     sp: u16,
+}
+
+impl Default for Cpu {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Cpu {
@@ -89,7 +99,7 @@ impl Cpu {
             3 => self.e,
             4 => self.h,
             5 => self.l,
-            6 => self.read(bus, self.get_r16(2)), // [HL]
+            6 => self.read(bus, self.get_r16(R16_HL)), // [HL]
             7 => self.a,
             _ => panic!("Outside expected range of 0-7 for r8 decoding"),
         }
@@ -103,7 +113,7 @@ impl Cpu {
             3 => self.e = val,
             4 => self.h = val,
             5 => self.l = val,
-            6 => self.write(bus, self.get_r16(2), val), // [HL]
+            6 => self.write(bus, self.get_r16(R16_HL), val), // [HL]
             7 => self.a = val,
             _ => panic!("Outside expected range of 0-7 for r8 decoding"),
         }
@@ -140,6 +150,7 @@ impl Cpu {
         }
     }
 
+    #[allow(dead_code)]
     fn get_r16stk(&self, code: u8) -> u16 {
         match code {
             0 => ((self.b as u16) << 8) | self.c as u16,
@@ -150,6 +161,7 @@ impl Cpu {
         }
     }
 
+    #[allow(dead_code)]
     fn set_r16stk(&mut self, code: u8, val: u16) {
         let hi: u8 = (val >> 8) as u8;
         let lo: u8 = val as u8;
@@ -175,43 +187,73 @@ impl Cpu {
     }
 
     fn get_r16mem(&mut self, bus: &Bus, code: u8) -> u8 {
-        let res = match code {
+        match code {
             0 | 1 => self.read(bus, self.get_r16(code)),
-            2 => {
-                let r16 = self.get_r16(2);
-                let res = self.read(bus, r16);
-                self.set_r16(2, r16.wrapping_add(1));
-                res
-            }
-            3 => {
-                let r16 = self.get_r16(2);
-                let res = self.read(bus, r16);
-                self.set_r16(2, r16.wrapping_sub(1));
-                res
-            }
-            _ => panic!("Outside expected range of 0-3 for r16bus decoding"),
-        };
-
-        return res;
+            2 | 3 => self.read(bus, self.get_r16(R16_HL)),
+            _ => panic!("Outside expected range of 0-3 for r16mem decoding"),
+        }
     }
 
-    // Instructions - Should move to instructions.rs sub module
-    fn ld_r8_r8(&mut self, bus: &mut Bus, opcode: u8) {
-        println!("{opcode:02X}");
-        self.set_r8(bus, opcode & DEST_R8, self.get_r8(bus, opcode & SRC_R8));
+    fn set_r16mem(&mut self, bus: &mut Bus, code: u8, val: u8) {
+        match code {
+            0 | 1 => self.write(bus, self.get_r16(code), val),
+            2 | 3 => self.write(bus, self.get_r16(R16_HL), val),
+            _ => panic!("Outside expected range of 0-3 for r16mem decoding"),
+        }
     }
 
     pub fn step(&mut self, bus: &mut Bus) {
         let opcode: u8 = self.fetch_byte(bus);
         match opcode {
-            // Implement instructions
-            // LD r8 r8
-            0x40..0x7F => {
+            0x01 | 0x11 | 0x21 | 0x31 => {
+                self.ld_r16_imm16(bus, opcode);
+            }
+            0x02 | 0x12 | 0x22 | 0x32 => {
+                self.ld_r16mem_a(bus, opcode);
+            }
+            0x06 | 0x16 | 0x26 | 0x36 | 0x0E | 0x1E | 0x2E | 0x3E => {
+                self.ld_r8_imm8(bus, opcode);
+            }
+            0x08 => {
+                self.ld_imm16_sp(bus);
+            }
+            0x0A | 0x1A | 0x2A | 0x3A => {
+                self.ld_a_r16mem(bus, opcode);
+            }
+            0x40..=0x7F => {
                 if opcode == 0x76 {
                     // Impl HALT
+                    todo!("Implement");
                 }
-                // call ld
                 self.ld_r8_r8(bus, opcode);
+            }
+            0xE0 => {
+                let imm8 = self.fetch_byte(bus);
+                self.ld_mem_a(bus, 0xFF00 + imm8 as u16);
+            }
+            0xE2 => {
+                self.ld_mem_a(bus, 0xFF00 + self.c as u16);
+            }
+            0xEA => {
+                let imm16 = self.fetch_bytes(bus);
+                self.ld_mem_a(bus, imm16);
+            }
+            0xF0 => {
+                let imm8 = self.fetch_byte(bus);
+                self.ld_a(bus, 0xFF00 + imm8 as u16);
+            }
+            0xF2 => {
+                self.ld_a(bus, 0xFF00 + self.c as u16);
+            }
+            0xF8 => {
+                self.ld_hl_sp_imm8(bus);
+            }
+            0xF9 => {
+                self.ld_sp_hl(opcode);
+            }
+            0xFA => {
+                let imm16 = self.fetch_bytes(bus);
+                self.ld_a(bus, imm16);
             }
             _ => {
                 todo!("Unknown opcode")

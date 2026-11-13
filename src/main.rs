@@ -1,11 +1,11 @@
 use std::process::abort;
 
-use SabrinaColour::emulator::Emulator;
+use sabrina_colour::emulator::Emulator;
 
 fn main() {
     let mut emu: Emulator = Emulator::new();
 
-    if let Err(_) = emu.run() {
+    if emu.run().is_err() {
         abort()
     }
 }
