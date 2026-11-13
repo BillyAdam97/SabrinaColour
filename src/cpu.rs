@@ -227,6 +227,38 @@ impl Cpu {
                 }
                 self.ld_r8_r8(bus, opcode);
             }
+            0x80..=0x87 => {
+                let r8 = self.get_r8(bus, opcode & SRC_R8);
+                self.add_a_u8(r8);
+            }
+            0x88..=0x8F => {
+                let r8 = self.get_r8(bus, opcode & SRC_R8);
+                self.adc_a_u8(r8);
+            }
+            0x90..=0x97 => {
+                let r8 = self.get_r8(bus, opcode & SRC_R8);
+                self.sub_a_u8(r8);
+            }
+            0x98..=0x9F => {
+                let r8 = self.get_r8(bus, opcode & SRC_R8);
+                self.sbc_a_u8(r8);
+            }
+            0xC6 => {
+                let imm8 = self.fetch_byte(bus);
+                self.add_a_u8(imm8);
+            }
+            0xCE => {
+                let imm8 = self.fetch_byte(bus);
+                self.adc_a_u8(imm8);
+            }
+            0xD6 => {
+                let imm8 = self.fetch_byte(bus);
+                self.sub_a_u8(imm8);
+            }
+            0xDE => {
+                let imm8 = self.fetch_byte(bus);
+                self.sbc_a_u8(imm8);
+            }
             0xE0 => {
                 let imm8 = self.fetch_byte(bus);
                 self.ld_mem_a(bus, 0xFF00 + imm8 as u16);

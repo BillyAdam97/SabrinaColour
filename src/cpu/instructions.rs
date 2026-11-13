@@ -75,4 +75,57 @@ impl Cpu {
     pub(super) fn ld_sp_hl(&mut self, opcode: u8) {
         self.set_r16((opcode & DEST_R16) >> 4, self.get_r16(R16_HL));
     }
+
+    // Arithmetic
+    pub(super) fn add_a_u8(&mut self, u8_val: u8) {
+        let hc = (self.a as u16 & 0xF) + (u8_val as u16 & 0xF) > 0xF;
+        let c = self.a as u16 + u8_val as u16 > 0xFF;
+
+        self.a = self.a.wrapping_add(u8_val);
+
+        self.f.set(Flags::ZERO, self.a == 0);
+        self.f.set(Flags::SUB, false);
+        self.f.set(Flags::HALF, hc);
+        self.f.set(Flags::CARRY, c);
+    }
+
+    pub(super) fn adc_a_u8(&mut self, u8_val: u8) {
+        let oc = u8::from(self.f.contains(Flags::CARRY));
+
+        let hc = (self.a as u16 & 0xF) + (u8_val as u16 & 0xF) + oc as u16 > 0xF;
+        let c = self.a as u16 + u8_val as u16 + oc as u16 > 0xFF;
+
+        self.a = self.a.wrapping_add(u8_val).wrapping_add(oc);
+
+        self.f.set(Flags::ZERO, self.a == 0);
+        self.f.set(Flags::SUB, false);
+        self.f.set(Flags::HALF, hc);
+        self.f.set(Flags::CARRY, c);
+    }
+
+    pub(super) fn sub_a_u8(&mut self, u8_val: u8) {
+        let hc = (self.a & 0xF) < (u8_val & 0xF);
+        let c = self.a < u8_val;
+
+        self.a = self.a.wrapping_sub(u8_val);
+
+        self.f.set(Flags::ZERO, self.a == 0);
+        self.f.set(Flags::SUB, true);
+        self.f.set(Flags::HALF, hc);
+        self.f.set(Flags::CARRY, c);
+    }
+
+    pub(super) fn sbc_a_u8(&mut self, u8_val: u8) {
+        let oc = u8::from(self.f.contains(Flags::CARRY));
+
+        let hc = ((self.a & 0xF) as u16) < ((u8_val & 0xF) as u16) + oc as u16;
+        let c = (self.a as u16) < u8_val as u16 + oc as u16;
+
+        self.a = self.a.wrapping_sub(u8_val).wrapping_sub(oc);
+
+        self.f.set(Flags::ZERO, self.a == 0);
+        self.f.set(Flags::SUB, true);
+        self.f.set(Flags::HALF, hc);
+        self.f.set(Flags::CARRY, c);
+    }
 }
