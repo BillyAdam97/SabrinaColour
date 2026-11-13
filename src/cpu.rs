@@ -1,3 +1,4 @@
+mod instructions;
 #[cfg(test)]
 mod tests;
 
@@ -16,6 +17,7 @@ bitflags! {
 }
 
 impl Flags {
+    #[allow(dead_code)]
     fn check_cond(&self, code: u8) -> bool {
         match code {
             0 => !self.contains(Flags::ZERO),
@@ -148,6 +150,7 @@ impl Cpu {
         }
     }
 
+    #[allow(dead_code)]
     fn get_r16stk(&self, code: u8) -> u16 {
         match code {
             0 => ((self.b as u16) << 8) | self.c as u16,
@@ -158,6 +161,7 @@ impl Cpu {
         }
     }
 
+    #[allow(dead_code)]
     fn set_r16stk(&mut self, code: u8, val: u16) {
         let hi: u8 = (val >> 8) as u8;
         let lo: u8 = val as u8;
@@ -183,13 +187,11 @@ impl Cpu {
     }
 
     fn get_r16mem(&mut self, bus: &Bus, code: u8) -> u8 {
-        let res = match code {
+        match code {
             0 | 1 => self.read(bus, self.get_r16(code)),
             2 | 3 => self.read(bus, self.get_r16(R16_HL)),
             _ => panic!("Outside expected range of 0-3 for r16mem decoding"),
-        };
-
-        res
+        }
     }
 
     fn set_r16mem(&mut self, bus: &mut Bus, code: u8, val: u8) {
@@ -200,91 +202,12 @@ impl Cpu {
         }
     }
 
-    // Instructions - Should move to instructions.rs sub module
-
-    // Loads
-    fn ld_r8_r8(&mut self, bus: &mut Bus, opcode: u8) {
-        self.set_r8(
-            bus,
-            (opcode & DEST_R8) >> 3,
-            self.get_r8(bus, opcode & SRC_R8),
-        );
-    }
-
-    fn ld_r16_imm16(&mut self, bus: &mut Bus, opcode: u8) {
-        let imm16 = self.fetch_bytes(bus);
-        self.set_r16((opcode & DEST_R16) >> 4, imm16);
-    }
-
-    fn ld_r16mem_a(&mut self, bus: &mut Bus, opcode: u8) {
-        let code = (opcode & DEST_R16) >> 4;
-        self.set_r16mem(bus, code, self.a);
-        if code == R16_HL {
-            let hl = self.get_r16(R16_HL);
-            self.set_r16(2, hl.wrapping_add(1));
-        } else if code == 3 {
-            let hl = self.get_r16(R16_HL);
-            self.set_r16(2, hl.wrapping_sub(1));
-        }
-    }
-
-    fn ld_a_r16mem(&mut self, bus: &Bus, opcode: u8) {
-        let code = (opcode & DEST_R16) >> 4;
-        self.a = self.get_r16mem(bus, code);
-        if code == R16_HL {
-            let hl = self.get_r16(R16_HL);
-            self.set_r16(2, hl.wrapping_add(1));
-        } else if code == 3 {
-            let hl = self.get_r16(R16_HL);
-            self.set_r16(2, hl.wrapping_sub(1));
-        }
-    }
-
-    fn ld_imm16_sp(&mut self, bus: &mut Bus) {
-        let imm16 = self.fetch_bytes(bus);
-        self.write(bus, imm16, self.sp as u8);
-        self.write(bus, imm16.wrapping_add(1), (self.sp >> 8) as u8)
-    }
-
-    fn ld_r8_imm8(&mut self, bus: &mut Bus, opcode: u8) {
-        let imm8 = self.fetch_byte(bus);
-        self.set_r8(bus, (opcode & DEST_R8) >> 3, imm8);
-    }
-
-    fn ld_mem_a(&mut self, bus: &mut Bus, addr: u16) {
-        self.write(bus, addr, self.a);
-    }
-
-    fn ld_a(&mut self, bus: &Bus, addr: u16) {
-        self.a = self.read(bus, addr);
-    }
-
-    fn ld_hl_sp_imm8(&mut self, bus: &Bus) {
-        let imm8 = self.fetch_byte(bus);
-        let hc = (self.sp & 0xF) + (imm8 as u16 & 0xF) > 0xF;
-        let c = (self.sp & 0xFF) + imm8 as u16 > 0xFF;
-
-        self.set_r16(2, self.sp.wrapping_add((imm8 as i8 as i16) as u16));
-
-        self.f.set(Flags::ZERO, false);
-        self.f.set(Flags::SUB, false);
-        self.f.set(Flags::HALF, hc);
-        self.f.set(Flags::CARRY, c);
-    }
-
-    fn ld_sp_hl(&mut self, opcode: u8) {
-        self.set_r16((opcode & DEST_R16) >> 4, self.get_r16(R16_HL));
-    }
-
     pub fn step(&mut self, bus: &mut Bus) {
         let opcode: u8 = self.fetch_byte(bus);
         match opcode {
-            // Implement instructions
-            // LD r16 imm16
             0x01 | 0x11 | 0x21 | 0x31 => {
                 self.ld_r16_imm16(bus, opcode);
             }
-            // LD r16mem a
             0x02 | 0x12 | 0x22 | 0x32 => {
                 self.ld_r16mem_a(bus, opcode);
             }
@@ -297,17 +220,15 @@ impl Cpu {
             0x0A | 0x1A | 0x2A | 0x3A => {
                 self.ld_a_r16mem(bus, opcode);
             }
-            // LD r8 r8
             0x40..=0x7F => {
                 if opcode == 0x76 {
                     // Impl HALT
                     todo!("Implement");
                 }
-                // call ld
                 self.ld_r8_r8(bus, opcode);
             }
             0xE0 => {
-                let imm8 = self.fetch_byte(bus) as u16;
+                let imm8 = self.fetch_byte(bus);
                 self.ld_mem_a(bus, 0xFF00 + imm8 as u16);
             }
             0xE2 => {
