@@ -211,14 +211,30 @@ impl Cpu {
             0x02 | 0x12 | 0x22 | 0x32 => {
                 self.ld_r16mem_a(bus, opcode);
             }
+            0x03 | 0x13 | 0x23 | 0x33 => {
+                self.inc_r16(bus, opcode);
+            }
+            0x04 | 0x0C | 0x14 | 0x1C | 0x24 | 0x2C | 0x34 | 0x3C => {
+                self.inc_r8(bus, opcode);
+            }
+            0x05 | 0x0D | 0x15 | 0x1D | 0x25 | 0x2D | 0x35 | 0x3D => {
+                self.dec_r8(bus, opcode);
+            }
             0x06 | 0x16 | 0x26 | 0x36 | 0x0E | 0x1E | 0x2E | 0x3E => {
                 self.ld_r8_imm8(bus, opcode);
             }
             0x08 => {
                 self.ld_imm16_sp(bus);
             }
+            0x09 | 0x19 | 0x29 | 0x39 => {
+                let u16 = self.get_r16((opcode & DEST_R16) >> 4);
+                self.add_hl_u16(u16);
+            }
             0x0A | 0x1A | 0x2A | 0x3A => {
                 self.ld_a_r16mem(bus, opcode);
+            }
+            0x0B | 0x1B | 0x2B | 0x3B => {
+                self.dec_r16(bus, opcode);
             }
             0x40..=0x7F => {
                 if opcode == 0x76 {
@@ -243,6 +259,22 @@ impl Cpu {
                 let r8 = self.get_r8(bus, opcode & SRC_R8);
                 self.sbc_a_u8(r8);
             }
+            0xA0..=0xA7 => {
+                let r8 = self.get_r8(bus, opcode & SRC_R8);
+                self.and_a_u8(r8);
+            }
+            0xA8..=0xAF => {
+                let r8 = self.get_r8(bus, opcode & SRC_R8);
+                self.xor_a_u8(r8);
+            }
+            0xB0..=0xB7 => {
+                let r8 = self.get_r8(bus, opcode & SRC_R8);
+                self.or_a_u8(r8);
+            }
+            0xB8..=0xBF => {
+                let r8 = self.get_r8(bus, opcode & SRC_R8);
+                self.cp_a_u8(r8);
+            }
             0xC6 => {
                 let imm8 = self.fetch_byte(bus);
                 self.add_a_u8(imm8);
@@ -258,6 +290,22 @@ impl Cpu {
             0xDE => {
                 let imm8 = self.fetch_byte(bus);
                 self.sbc_a_u8(imm8);
+            }
+            0xE6 => {
+                let imm8 = self.fetch_byte(bus);
+                self.and_a_u8(imm8);
+            }
+            0xEE => {
+                let imm8 = self.fetch_byte(bus);
+                self.xor_a_u8(imm8);
+            }
+            0xF6 => {
+                let imm8 = self.fetch_byte(bus);
+                self.or_a_u8(imm8);
+            }
+            0xFE => {
+                let imm8 = self.fetch_byte(bus);
+                self.cp_a_u8(imm8);
             }
             0xE0 => {
                 let imm8 = self.fetch_byte(bus);
