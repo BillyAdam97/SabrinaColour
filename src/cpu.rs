@@ -1,4 +1,5 @@
-mod instructions;
+mod arithmetic;
+mod loads;
 #[cfg(test)]
 mod tests;
 
@@ -212,7 +213,7 @@ impl Cpu {
                 self.ld_r16mem_a(bus, opcode);
             }
             0x03 | 0x13 | 0x23 | 0x33 => {
-                self.inc_r16(bus, opcode);
+                self.inc_r16(opcode);
             }
             0x04 | 0x0C | 0x14 | 0x1C | 0x24 | 0x2C | 0x34 | 0x3C => {
                 self.inc_r8(bus, opcode);
@@ -234,7 +235,7 @@ impl Cpu {
                 self.ld_a_r16mem(bus, opcode);
             }
             0x0B | 0x1B | 0x2B | 0x3B => {
-                self.dec_r16(bus, opcode);
+                self.dec_r16(opcode);
             }
             0x40..=0x7F => {
                 if opcode == 0x76 {
@@ -294,6 +295,10 @@ impl Cpu {
             0xE6 => {
                 let imm8 = self.fetch_byte(bus);
                 self.and_a_u8(imm8);
+            }
+            0xE8 => {
+                let imm8 = self.fetch_byte(bus);
+                self.add_sp_imm8(imm8);
             }
             0xEE => {
                 let imm8 = self.fetch_byte(bus);
