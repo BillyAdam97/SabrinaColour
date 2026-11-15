@@ -1,4 +1,5 @@
 mod arithmetic;
+mod jumps;
 mod loads;
 
 use super::{Cpu, Flags};

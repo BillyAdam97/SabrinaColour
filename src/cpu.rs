@@ -1,4 +1,5 @@
 mod arithmetic;
+mod jumps;
 mod loads;
 #[cfg(test)]
 mod tests;
@@ -237,6 +238,38 @@ impl Cpu {
             0x0B | 0x1B | 0x2B | 0x3B => {
                 self.dec_r16(opcode);
             }
+            0x18 => {
+                let imm8 = self.fetch_byte(bus) as i8;
+                self.jr_i8(imm8);
+            }
+            0x20 => {
+                let imm8 = self.fetch_byte(bus) as i8;
+                let cond = self.f.contains(Flags::ZERO);
+                if !cond {
+                    self.jr_i8(imm8);
+                }
+            }
+            0x28 => {
+                let imm8 = self.fetch_byte(bus) as i8;
+                let cond = self.f.contains(Flags::ZERO);
+                if cond {
+                    self.jr_i8(imm8);
+                }
+            }
+            0x30 => {
+                let imm8 = self.fetch_byte(bus) as i8;
+                let cond = self.f.contains(Flags::CARRY);
+                if !cond {
+                    self.jr_i8(imm8);
+                }
+            }
+            0x38 => {
+                let imm8 = self.fetch_byte(bus) as i8;
+                let cond = self.f.contains(Flags::CARRY);
+                if cond {
+                    self.jr_i8(imm8);
+                }
+            }
             0x40..=0x7F => {
                 if opcode == 0x76 {
                     // Impl HALT
@@ -276,17 +309,49 @@ impl Cpu {
                 let r8 = self.get_r8(bus, opcode & SRC_R8);
                 self.cp_a_u8(r8);
             }
+            0xC2 => {
+                let imm16 = self.fetch_bytes(bus);
+                let cond = self.f.contains(Flags::ZERO);
+                if !cond {
+                    self.jp_u16(imm16);
+                }
+            }
+            0xC3 => {
+                let imm16 = self.fetch_bytes(bus);
+                self.jp_u16(imm16);
+            }
             0xC6 => {
                 let imm8 = self.fetch_byte(bus);
                 self.add_a_u8(imm8);
+            }
+            0xCA => {
+                let imm16 = self.fetch_bytes(bus);
+                let cond = self.f.contains(Flags::ZERO);
+                if cond {
+                    self.jp_u16(imm16);
+                }
             }
             0xCE => {
                 let imm8 = self.fetch_byte(bus);
                 self.adc_a_u8(imm8);
             }
+            0xD2 => {
+                let imm16 = self.fetch_bytes(bus);
+                let cond = self.f.contains(Flags::CARRY);
+                if !cond {
+                    self.jp_u16(imm16);
+                }
+            }
             0xD6 => {
                 let imm8 = self.fetch_byte(bus);
                 self.sub_a_u8(imm8);
+            }
+            0xDA => {
+                let imm16 = self.fetch_bytes(bus);
+                let cond = self.f.contains(Flags::CARRY);
+                if cond {
+                    self.jp_u16(imm16);
+                }
             }
             0xDE => {
                 let imm8 = self.fetch_byte(bus);
@@ -299,6 +364,9 @@ impl Cpu {
             0xE8 => {
                 let imm8 = self.fetch_byte(bus);
                 self.add_sp_imm8(imm8);
+            }
+            0xE9 => {
+                self.jp_u16(self.get_r16(R16_HL));
             }
             0xEE => {
                 let imm8 = self.fetch_byte(bus);
