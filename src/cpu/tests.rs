@@ -2,8 +2,9 @@ mod arithmetic;
 mod jumps;
 mod loads;
 
-use super::{Cpu, Flags};
+use super::Cpu;
 use crate::bus::Bus;
+use crate::cpu::registers::Flags;
 
 // Distinct values expose accidental writes to unrelated registers.
 fn seeded_cpu(pc: u16, flags: u8) -> Cpu {

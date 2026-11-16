@@ -1,4 +1,5 @@
-use super::{Flags, seeded_cpu};
+use super::seeded_cpu;
+use crate::cpu::registers::Flags;
 use crate::bus::Bus;
 
 #[test]

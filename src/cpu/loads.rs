@@ -1,5 +1,6 @@
-use super::{Cpu, DEST_R8, DEST_R16, Flags, R16_HL, SRC_R8};
+use super::{Cpu, DEST_R8, DEST_R16, R16_HL, SRC_R8};
 use crate::bus::Bus;
+use crate::cpu::registers::Flags;
 
 impl Cpu {
     // Loads
