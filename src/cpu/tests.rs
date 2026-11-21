@@ -1,6 +1,8 @@
 mod arithmetic;
+mod flags;
 mod jumps;
 mod loads;
+mod registers;
 
 use super::Cpu;
 use crate::bus::Bus;
