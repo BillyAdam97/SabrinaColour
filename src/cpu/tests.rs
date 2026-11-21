@@ -3,6 +3,7 @@ mod flags;
 mod jumps;
 mod loads;
 mod registers;
+mod stack;
 
 use super::Cpu;
 use crate::bus::Bus;

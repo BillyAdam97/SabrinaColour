@@ -3,6 +3,7 @@ mod flags;
 mod jumps;
 mod loads;
 mod registers;
+mod stack;
 #[cfg(test)]
 mod tests;
 
@@ -199,6 +200,9 @@ impl Cpu {
                 let r8 = self.get_r8(bus, opcode & SRC_R8);
                 self.cp_a_u8(r8);
             }
+            0xC1 | 0xD1 | 0xE1 | 0xF1 => {
+                self.pop_r16stk(bus, (opcode & DEST_R16) >> 4);
+            }
             // Should make a helper for the condition check and then group
             0xC2 => {
                 let imm16 = self.fetch_bytes(bus);
@@ -210,6 +214,9 @@ impl Cpu {
             0xC3 => {
                 let imm16 = self.fetch_bytes(bus);
                 self.jp_u16(imm16);
+            }
+            0xC5 | 0xD5 | 0xE5 | 0xF5 => {
+                self.push_r16stk(bus, (opcode & DEST_R16) >> 4);
             }
             0xC6 => {
                 let imm8 = self.fetch_byte(bus);
