@@ -1,5 +1,5 @@
-use super::{Cpu, R16_HL};
 use super::Bus;
+use super::{Cpu, R16_HL};
 
 use bitflags::bitflags;
 
@@ -27,7 +27,6 @@ impl Flags {
 }
 
 impl Cpu {
- 
     pub(super) fn get_r8(&self, bus: &Bus, code: u8) -> u8 {
         match code {
             0 => self.b,

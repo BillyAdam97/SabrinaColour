@@ -1,6 +1,6 @@
 use super::{Cpu, DEST_R8, DEST_R16, R16_HL};
-use crate::cpu::registers::Flags;
 use crate::bus::Bus;
+use crate::cpu::registers::Flags;
 
 impl Cpu {
     pub(super) fn add_a_u8(&mut self, u8_val: u8) {

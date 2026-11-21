@@ -1,6 +1,6 @@
 use super::seeded_cpu;
-use crate::cpu::registers::Flags;
 use crate::bus::Bus;
+use crate::cpu::registers::Flags;
 
 #[test]
 fn inc_r16() {
