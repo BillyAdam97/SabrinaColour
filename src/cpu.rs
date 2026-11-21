@@ -1,4 +1,5 @@
 mod arithmetic;
+mod flags;
 mod jumps;
 mod loads;
 mod registers;
@@ -90,6 +91,9 @@ impl Cpu {
             0x06 | 0x16 | 0x26 | 0x36 | 0x0E | 0x1E | 0x2E | 0x3E => {
                 self.ld_r8_imm8(bus, opcode);
             }
+            0x07 => {
+                self.rlca();
+            }
             0x08 => {
                 self.ld_imm16_sp(bus);
             }
@@ -103,9 +107,18 @@ impl Cpu {
             0x0B | 0x1B | 0x2B | 0x3B => {
                 self.dec_r16(opcode);
             }
+            0x0F => {
+                self.rrca();
+            }
+            0x17 => {
+                self.rla();
+            }
             0x18 => {
                 let imm8 = self.fetch_byte(bus) as i8;
                 self.jr_i8(imm8);
+            }
+            0x1F => {
+                self.rra();
             }
             0x20 => {
                 let imm8 = self.fetch_byte(bus) as i8;
@@ -114,12 +127,18 @@ impl Cpu {
                     self.jr_i8(imm8);
                 }
             }
+            0x27 => {
+                self.daa();
+            }
             0x28 => {
                 let imm8 = self.fetch_byte(bus) as i8;
                 let cond = self.f.contains(Flags::ZERO);
                 if cond {
                     self.jr_i8(imm8);
                 }
+            }
+            0x2F => {
+                self.cpl();
             }
             0x30 => {
                 let imm8 = self.fetch_byte(bus) as i8;
@@ -128,12 +147,18 @@ impl Cpu {
                     self.jr_i8(imm8);
                 }
             }
+            0x37 => {
+                self.scf();
+            }
             0x38 => {
                 let imm8 = self.fetch_byte(bus) as i8;
                 let cond = self.f.contains(Flags::CARRY);
                 if cond {
                     self.jr_i8(imm8);
                 }
+            }
+            0x3F => {
+                self.ccf();
             }
             0x40..=0x7F => {
                 if opcode == 0x76 {
