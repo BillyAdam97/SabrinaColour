@@ -2,7 +2,7 @@ use super::Cpu;
 use crate::cpu::registers::Flags;
 
 impl Cpu {
-    pub(super) fn rlca(&mut self) {
+    pub(super) fn rlca(&mut self) -> u8 {
         let c: u8 = (self.a >> 7) & 0x01;
         self.a = self.a.rotate_left(1);
 
@@ -10,6 +10,7 @@ impl Cpu {
         self.f.set(Flags::SUB, false);
         self.f.set(Flags::HALF, false);
         self.f.set(Flags::CARRY, c == 1);
+        4
     }
 
     pub(super) fn rrca(&mut self) {

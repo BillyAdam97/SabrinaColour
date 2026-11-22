@@ -15,7 +15,7 @@ impl Cpu {
         self.f.set(Flags::CARRY, c);
     }
 
-    pub(super) fn add_hl_u16(&mut self, u16_val: u16) {
+    pub(super) fn add_hl_u16(&mut self, u16_val: u16) -> u8 {
         let hl = self.get_r16(R16_HL);
         let hc = (hl & 0xFFF) + (u16_val & 0xFFF) > 0xFFF;
         let c = hl as u32 + u16_val as u32 > 0xFFFF;
@@ -25,6 +25,7 @@ impl Cpu {
         self.f.set(Flags::SUB, false);
         self.f.set(Flags::HALF, hc);
         self.f.set(Flags::CARRY, c);
+        8
     }
 
     pub(super) fn add_sp_imm8(&mut self, u8_val: u8) {
@@ -119,7 +120,7 @@ impl Cpu {
         self.f.set(Flags::CARRY, c);
     }
 
-    pub(super) fn inc_r8(&mut self, bus: &mut Bus, opcode: u8) {
+    pub(super) fn inc_r8(&mut self, bus: &mut Bus, opcode: u8) -> u8 {
         let code = (opcode & DEST_R8) >> 3;
         let r8 = self.get_r8(bus, code);
         let hc = (r8 & 0xF) + 1 > 0xF;
@@ -130,15 +131,17 @@ impl Cpu {
         self.f.set(Flags::ZERO, r8 == 0);
         self.f.set(Flags::SUB, false);
         self.f.set(Flags::HALF, hc);
+        4
     }
 
-    pub(super) fn inc_r16(&mut self, opcode: u8) {
+    pub(super) fn inc_r16(&mut self, opcode: u8) -> u8 {
         let code = (opcode & DEST_R16) >> 4;
         let r16 = self.get_r16(code);
         self.set_r16(code, r16.wrapping_add(1));
+        8
     }
 
-    pub(super) fn dec_r8(&mut self, bus: &mut Bus, opcode: u8) {
+    pub(super) fn dec_r8(&mut self, bus: &mut Bus, opcode: u8) -> u8 {
         let code = (opcode & DEST_R8) >> 3;
         let r8 = self.get_r8(bus, code);
         let hc = (r8 & 0xF) < 1;
@@ -149,6 +152,7 @@ impl Cpu {
         self.f.set(Flags::ZERO, r8 == 0);
         self.f.set(Flags::SUB, true);
         self.f.set(Flags::HALF, hc);
+        4
     }
 
     pub(super) fn dec_r16(&mut self, opcode: u8) {

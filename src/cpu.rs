@@ -1,5 +1,6 @@
 mod arithmetic;
 mod flags;
+mod interrupts;
 mod jumps;
 mod loads;
 mod registers;
@@ -13,6 +14,7 @@ use crate::cpu::registers::Flags;
 const DEST_R8: u8 = 0b00111000;
 const SRC_R8: u8 = 0b00000111;
 const DEST_R16: u8 = 0b00110000;
+const COND: u8 = 0b00011000;
 const R16_HL: u8 = 2;
 
 #[derive(Debug, PartialEq)]
@@ -27,6 +29,10 @@ pub struct Cpu {
     l: u8,
     pc: u16,
     sp: u16,
+    halted: bool,
+    halt_bug: bool,
+    ime: bool,
+    ime_pending: bool,
 }
 
 impl Default for Cpu {
@@ -48,6 +54,10 @@ impl Cpu {
             l: 0,
             pc: 0,
             sp: 0,
+            halted: false,
+            halt_bug: false,
+            ime: false,
+            ime_pending: false,
         }
     }
 
@@ -71,9 +81,34 @@ impl Cpu {
         ((hi as u16) << 8) | lo as u16
     }
 
-    pub fn step(&mut self, bus: &mut Bus) {
-        let opcode: u8 = self.fetch_byte(bus);
+    fn nop(&self) {}
+
+    fn service_interrupt(&mut self, bus: &mut Bus, pending_int: u8) -> u8 {
+        let int_bit = pending_int.trailing_zeros() as u8;
+        let vector = match int_bit {
+            0 => 0x0040,
+            1 => 0x0048,
+            2 => 0x0050,
+            3 => 0x0058,
+            4 => 0x0060,
+            _ => unreachable!(),
+        };
+        self.ime = false;
+
+        let f = self.read(bus, IF);
+        self.write(bus, IF, f & !(1 << int_bit));
+
+        self.push_r16(bus, self.pc);
+        self.pc = vector;
+
+        20
+    }
+
+    fn execute(&mut self, bus: &mut Bus, opcode: u8) {
         match opcode {
+            0x00 => {
+                self.nop();
+            }
             0x01 | 0x11 | 0x21 | 0x31 => {
                 self.ld_r16_imm16(bus, opcode);
             }
@@ -161,11 +196,14 @@ impl Cpu {
             0x3F => {
                 self.ccf();
             }
-            0x40..=0x7F => {
-                if opcode == 0x76 {
-                    // Impl HALT
-                    todo!("Implement");
+            0x76 => {
+                if !self.ime && bus.pending_interrupts() != 0 {
+                    self.halt_bug = true;
+                } else {
+                    self.halted = true;
                 }
+            }
+            0x40..=0x7F => {
                 self.ld_r8_r8(bus, opcode);
             }
             0x80..=0x87 => {
@@ -200,20 +238,24 @@ impl Cpu {
                 let r8 = self.get_r8(bus, opcode & SRC_R8);
                 self.cp_a_u8(r8);
             }
+            0xC0 | 0xD0 | 0xC8 | 0xD8 => {
+                self.ret_cc_u16(bus, (opcode & COND) >> 3);
+            }
             0xC1 | 0xD1 | 0xE1 | 0xF1 => {
                 self.pop_r16stk(bus, (opcode & DEST_R16) >> 4);
             }
             // Should make a helper for the condition check and then group
-            0xC2 => {
+            0xC2 | 0xCA | 0xD2 | 0xDA => {
                 let imm16 = self.fetch_bytes(bus);
-                let cond = self.f.contains(Flags::ZERO);
-                if !cond {
-                    self.jp_u16(imm16);
-                }
+                self.jp_cc_u16((opcode & COND) >> 3, imm16);
             }
             0xC3 => {
                 let imm16 = self.fetch_bytes(bus);
                 self.jp_u16(imm16);
+            }
+            0xC4 | 0xCC | 0xD4 | 0xDC => {
+                let imm16: u16 = self.fetch_bytes(bus);
+                self.call_cc_u16(bus, (opcode & COND) >> 3, imm16);
             }
             0xC5 | 0xD5 | 0xE5 | 0xF5 => {
                 self.push_r16stk(bus, (opcode & DEST_R16) >> 4);
@@ -222,42 +264,49 @@ impl Cpu {
                 let imm8 = self.fetch_byte(bus);
                 self.add_a_u8(imm8);
             }
-            0xCA => {
-                let imm16 = self.fetch_bytes(bus);
-                let cond = self.f.contains(Flags::ZERO);
-                if cond {
-                    self.jp_u16(imm16);
-                }
+            0xC7 => {
+                self.rst_vec(bus, 0x00);
+            }
+            0xC9 => {
+                self.ret_u16(bus);
+            }
+            0xCB => {
+                todo!("Handle CB instructions");
+            }
+            0xCD => {
+                let imm16: u16 = self.fetch_bytes(bus);
+                self.call_u16(bus, imm16);
             }
             0xCE => {
                 let imm8 = self.fetch_byte(bus);
                 self.adc_a_u8(imm8);
             }
-            0xD2 => {
-                let imm16 = self.fetch_bytes(bus);
-                let cond = self.f.contains(Flags::CARRY);
-                if !cond {
-                    self.jp_u16(imm16);
-                }
+            0xCF => {
+                self.rst_vec(bus, 0x08);
             }
             0xD6 => {
                 let imm8 = self.fetch_byte(bus);
                 self.sub_a_u8(imm8);
             }
-            0xDA => {
-                let imm16 = self.fetch_bytes(bus);
-                let cond = self.f.contains(Flags::CARRY);
-                if cond {
-                    self.jp_u16(imm16);
-                }
+            0xD7 => {
+                self.rst_vec(bus, 0x10);
+            }
+            0xD9 => {
+                self.reti(bus);
             }
             0xDE => {
                 let imm8 = self.fetch_byte(bus);
                 self.sbc_a_u8(imm8);
             }
+            0xDF => {
+                self.rst_vec(bus, 0x18);
+            }
             0xE6 => {
                 let imm8 = self.fetch_byte(bus);
                 self.and_a_u8(imm8);
+            }
+            0xE7 => {
+                self.rst_vec(bus, 0x20);
             }
             0xE8 => {
                 let imm8 = self.fetch_byte(bus);
@@ -270,13 +319,28 @@ impl Cpu {
                 let imm8 = self.fetch_byte(bus);
                 self.xor_a_u8(imm8);
             }
+            0xEF => {
+                self.rst_vec(bus, 0x28);
+            }
+            0xF3 => {
+                self.di();
+            }
             0xF6 => {
                 let imm8 = self.fetch_byte(bus);
                 self.or_a_u8(imm8);
             }
+            0xF7 => {
+                self.rst_vec(bus, 0x30);
+            }
+            0xFB => {
+                self.ei();
+            }
             0xFE => {
                 let imm8 = self.fetch_byte(bus);
                 self.cp_a_u8(imm8);
+            }
+            0xFF => {
+                self.rst_vec(bus, 0x38);
             }
             0xE0 => {
                 let imm8 = self.fetch_byte(bus);
@@ -310,5 +374,40 @@ impl Cpu {
                 todo!("Unknown opcode")
             }
         };
+    }
+
+    pub fn step(&mut self, bus: &mut Bus) {
+        let pending_int = bus.pending_interrupts();
+
+        if self.halted {
+            if pending_int == 0 {
+                // return 4;
+                return;
+            }
+            self.halted = false;
+        }
+
+        let halt_bug = self.halt_bug;
+        self.halt_bug = false;
+        if self.ime && pending_int != 0 {
+            if halt_bug {
+                self.pc = self.pc.wrapping_sub(1);
+            }
+            let _ = self.service_interrupt(bus, pending_int);
+            return;
+        }
+
+        let ime_pending: bool = self.ime_pending;
+        let opcode = if halt_bug {
+            self.read(bus, self.pc)
+        } else {
+            self.fetch_byte(bus)
+        };
+        self.execute(bus, opcode);
+
+        if ime_pending && self.ime_pending {
+            self.ime = true;
+            self.ime_pending = false;
+        }
     }
 }
